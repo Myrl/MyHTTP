@@ -7,7 +7,7 @@ import Control.Concurrent
 
 generate404 h = do
     hContentType h "image/jpg"
-    image <- B.readFile "./404.png"
+    image <- B.readFile "./files/404.png"
     hContentLength h $ B.length image
     hHeaderEnd h
     B.hPutStr h image

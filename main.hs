@@ -16,8 +16,10 @@ import Control.Exception
 
 import Page404
 
+fileDir = "./files/"
+
 shrinkPath :: String -> Maybe String
-shrinkPath = fmap (("." ++) . intercalate "/" . reverse) . F.foldlM body_ [] . splitOn "/"
+shrinkPath = fmap (("./" ++) . intercalate "/" . reverse) . F.foldlM body_ [] . splitOn "/" . tail
   where
       body_ []     ".." = Nothing
       body_ (x:xs) ".." = Just xs
@@ -25,7 +27,7 @@ shrinkPath = fmap (("." ++) . intercalate "/" . reverse) . F.foldlM body_ [] . s
 
 getPage :: Handle -> FilePath -> IO ()
 getPage h "./" = getPage h "./index.hs"
-getPage h f    = doesFileExist f >>= getPage'
+getPage h f    = doesFileExist (fileDir ++ f) >>= getPage'
   where
     getPage' :: Bool -> IO ()
     getPage' False = do
@@ -38,7 +40,8 @@ getPage h f    = doesFileExist f >>= getPage'
              createProcess (proc "runghc" ["-i ..", f])
                { std_in  = UseHandle h
                , std_out = UseHandle h
-               , std_err = UseHandle stderr}
+               , std_err = UseHandle stderr
+               , cwd = Just fileDir}
              return ()
         _     -> hPutStr h "HTTP/1.1 403 Forbidden\r\n\r\n"
 handleRequest h = do
@@ -48,14 +51,11 @@ handleRequest h = do
           print "Socket closed prematurely."
       Right req'              -> do
           let [type_, file, version] = words req'
-          last <- getCurrentDirectory
-          setCurrentDirectory "./files"
           case shrinkPath file of
             Just file' -> 
               case type_ of
                 "GET" -> getPage h file'
                 _     -> hPutStr stderr "Not supported"
-          setCurrentDirectory last
     hClose h
 
 main = withSocketsDo $ do
